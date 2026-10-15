@@ -17,6 +17,17 @@ android {
         versionName = "0.2.0"
     }
 
+    // Kunci debug tetap (disimpan di repo) agar APK debug dari setiap build bisa saling update.
+    // Kunci rilis untuk toko nanti dibuat terpisah dan TIDAK disimpan di repo.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
