@@ -46,17 +46,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dashboardDao(): DashboardDao
 
     companion object {
-        /** v1 -> v2: multi-satuan. Data lama tidak dihapus. */
+        /** v1 -> v2: multi-satuan. Data lama tidak dihapus. SQL-nya diuji di MigrationSqlTest. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS `product_units` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                        "`productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `factor` REAL NOT NULL, " +
-                        "`sellPrice` INTEGER NOT NULL, `barcode` TEXT, `sortOrder` INTEGER NOT NULL)",
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_units_productId` ON `product_units` (`productId`)")
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_product_units_barcode` ON `product_units` (`barcode`)")
-                db.execSQL("ALTER TABLE `sale_items` ADD COLUMN `unitFactor` REAL NOT NULL DEFAULT 1")
+                MigrationSql.V1_TO_V2.forEach { db.execSQL(it) }
             }
         }
 
