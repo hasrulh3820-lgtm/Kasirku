@@ -202,6 +202,35 @@ class ProductRepository(private val db: AppDatabase) {
     }
 
     /**
+     * Simpan hasil hitung stok (stok opname) banyak barang sekaligus, dalam satu transaksi:
+     * semua tersimpan atau tidak sama sekali. Barang yang hasilnya sama dengan sistem dilewati.
+     */
+    suspend fun saveStockCount(counts: Map<Long, Double>, reason: String = "Hitung stok"): RepoResult {
+        if (counts.isEmpty()) return RepoResult.Error("Belum ada barang yang dihitung.")
+        if (counts.values.any { it < 0 }) return RepoResult.Error("Hasil hitung tidak boleh minus.")
+        val now = Waktu.now()
+        return db.withTransaction<RepoResult> {
+            var changed = 0
+            for ((productId, raw) in counts) {
+                val p = productDao.getById(productId) ?: continue
+                val target = Qty.round(raw)
+                val change = Qty.round(target - p.stockQty)
+                if (change == 0.0) continue
+                productDao.update(p.copy(stockQty = target, updatedAt = now))
+                stockDao.insertMovement(
+                    StockMovement(
+                        productId = productId, type = MovementType.ADJUST, qtyChange = change, qtyAfter = target,
+                        unitCost = p.costPrice, note = reason, createdAt = now,
+                    ),
+                )
+                changed++
+            }
+            val same = counts.size - changed
+            RepoResult.Ok(0, "Hitung stok disimpan: $changed barang dikoreksi" + if (same > 0) ", $same barang sudah cocok." else ".")
+        }
+    }
+
+    /**
      * Barang yang belum pernah dijual atau dibeli dihapus permanen.
      * Barang yang punya riwayat diarsipkan (disembunyikan) agar laporan lama tetap utuh.
      */

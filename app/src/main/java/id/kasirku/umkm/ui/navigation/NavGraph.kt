@@ -12,6 +12,7 @@ import id.kasirku.umkm.ui.home.HomeScreen
 import id.kasirku.umkm.ui.product.ProductDetailScreen
 import id.kasirku.umkm.ui.product.ProductFormScreen
 import id.kasirku.umkm.ui.product.ProductListScreen
+import id.kasirku.umkm.ui.product.StockCountScreen
 import id.kasirku.umkm.ui.product.StockInScreen
 
 object Routes {
@@ -20,6 +21,7 @@ object Routes {
     const val PRODUCT_FORM = "product_form?id={id}"
     const val PRODUCT_DETAIL = "product/{id}"
     const val STOCK_IN = "stock_in/{id}"
+    const val STOCK_COUNT = "stock_count"
 
     fun productForm(id: Long? = null) = if (id == null) "product_form" else "product_form?id=$id"
     fun productDetail(id: Long) = "product/$id"
@@ -45,6 +47,13 @@ fun KasirKuNavHost() {
                 onBack = { nav.popBackStack() },
                 onAdd = { nav.navigate(Routes.productForm()) },
                 onOpen = { nav.navigate(Routes.productDetail(it)) },
+                onCount = { nav.navigate(Routes.STOCK_COUNT) },
+            )
+        }
+        composable(Routes.STOCK_COUNT) {
+            StockCountScreen(
+                onBack = { nav.popBackStack() },
+                onSaved = { msg -> nav.popBackStack(); toast(msg) },
             )
         }
         composable(

@@ -58,6 +58,8 @@ import id.kasirku.umkm.domain.UnitCalc
 import id.kasirku.umkm.domain.UnitOption
 import id.kasirku.umkm.ui.components.ConfirmDialog
 import id.kasirku.umkm.ui.components.KasirTopBar
+import id.kasirku.umkm.ui.components.MultiUnitInput
+import id.kasirku.umkm.ui.components.multiUnitTotal
 import id.kasirku.umkm.ui.components.QtyField
 import id.kasirku.umkm.ui.components.SectionCard
 import id.kasirku.umkm.ui.components.StatTile
@@ -239,6 +241,7 @@ fun ProductDetailScreen(
             AdjustDialog(
                 currentText = Qty.format(p.stockQty),
                 unit = p.unit,
+                bigUnits = units,
                 onDismiss = { showAdjust = false },
                 onSave = { qty, reason -> vm.adjust(qty, reason) { showAdjust = false } },
             )
@@ -285,8 +288,15 @@ private fun MovementRow(m: StockMovement, unit: String) {
 }
 
 @Composable
-private fun AdjustDialog(currentText: String, unit: String, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+private fun AdjustDialog(
+    currentText: String,
+    unit: String,
+    bigUnits: List<UnitOption>,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit,
+) {
     var qty by rememberSaveable { mutableStateOf(currentText) }
+    var parts by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var reason by rememberSaveable { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -294,7 +304,15 @@ private fun AdjustDialog(currentText: String, unit: String, onDismiss: () -> Uni
         text = {
             Column {
                 Text("Isi jumlah stok sebenarnya setelah dihitung ulang.", style = MaterialTheme.typography.bodyMedium)
-                QtyField("Stok sebenarnya", qty, { qty = it }, suffix = unit)
+                if (bigUnits.isEmpty()) {
+                    QtyField("Stok sebenarnya", qty, { qty = it }, suffix = unit)
+                } else {
+                    Text("Hitung per satuan:", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    MultiUnitInput(baseUnit = unit, bigUnits = bigUnits, values = parts, onChange = { parts = it })
+                    multiUnitTotal(unit, bigUnits, parts)?.let { total ->
+                        Text("= ${Qty.format(total)} $unit", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                }
                 OutlinedTextField(
                     value = reason, onValueChange = { reason = it },
                     label = { Text("Alasan") }, placeholder = { Text("mis. barang rusak, hitung ulang") },
@@ -302,7 +320,11 @@ private fun AdjustDialog(currentText: String, unit: String, onDismiss: () -> Uni
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(qty, reason) }) { Text("Simpan", fontWeight = FontWeight.Bold) } },
+        confirmButton = {
+            TextButton(onClick = {
+                val fromParts = if (bigUnits.isEmpty()) null else multiUnitTotal(unit, bigUnits, parts)
+                onSave(fromParts?.let { Qty.format(it) } ?: qty, reason)
+            }) { Text("Simpan", fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )
 }

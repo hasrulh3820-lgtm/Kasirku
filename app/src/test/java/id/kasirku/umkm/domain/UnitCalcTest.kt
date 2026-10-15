@@ -47,4 +47,13 @@ class UnitCalcTest {
         assertNotNull(UnitCalc.validate("pcs", listOf(UnitOption("dus", 40.0, 1), UnitOption("karton", 40.0, 1))))
         assertNotNull(UnitCalc.validate("pcs", listOf(UnitOption("", 40.0, 1))))
     }
+
+    @Test
+    fun sumPhysicalCount() {
+        assertEquals(144.0, UnitCalc.sumParts(listOf(3.0 to 40.0, 2.0 to 10.0, 4.0 to 1.0)), 0.0)
+        assertEquals(0.0, UnitCalc.sumParts(emptyList()), 0.0)
+        assertEquals(53.5, UnitCalc.sumParts(listOf(2.0 to 25.0, 3.5 to 1.0)), 0.0)
+        // hitung fisik dibanding stok sistem 172 pcs -> selisih -28
+        assertEquals(-28.0, UnitCalc.sumParts(listOf(3.0 to 40.0, 2.0 to 10.0, 4.0 to 1.0)) - 172.0, 0.0)
+    }
 }

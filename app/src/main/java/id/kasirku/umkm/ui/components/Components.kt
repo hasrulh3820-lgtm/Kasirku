@@ -188,3 +188,42 @@ fun ConfirmDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )
 }
+
+/**
+ * Isian hitung stok per satuan: [dus] [renteng] [pcs]. Satuan terbesar di kiri.
+ * [values] = nama satuan -> teks yang diketik.
+ */
+@Composable
+fun MultiUnitInput(
+    baseUnit: String,
+    bigUnits: List<id.kasirku.umkm.domain.UnitOption>,
+    values: Map<String, String>,
+    onChange: (Map<String, String>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val names = bigUnits.sortedByDescending { it.factor }.map { it.name } + baseUnit
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        names.forEach { name ->
+            OutlinedTextField(
+                value = values[name].orEmpty(),
+                onValueChange = { v -> onChange(values + (name to v.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(8))) },
+                label = { Text(name) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Total hasil hitung dalam satuan dasar; null jika semua isian masih kosong. */
+fun multiUnitTotal(baseUnit: String, bigUnits: List<id.kasirku.umkm.domain.UnitOption>, values: Map<String, String>): Double? {
+    if (values.values.all { it.isBlank() }) return null
+    val factors = bigUnits.associate { it.name to it.factor } + (baseUnit to 1.0)
+    val parts = values.mapNotNull { (name, text) ->
+        val f = factors[name] ?: return@mapNotNull null
+        val q = id.kasirku.umkm.domain.Qty.parse(text) ?: 0.0
+        q to f
+    }
+    return id.kasirku.umkm.domain.UnitCalc.sumParts(parts)
+}

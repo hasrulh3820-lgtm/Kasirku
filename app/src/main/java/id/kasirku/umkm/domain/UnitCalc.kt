@@ -43,6 +43,9 @@ object UnitCalc {
         return parts.joinToString(" + ")
     }
 
+    /** Jumlahkan hasil hitung fisik ke satuan dasar: [(3 dus, 40), (2 renteng, 10), (4 pcs, 1)] -> 144. */
+    fun sumParts(parts: List<Pair<Double, Double>>): Double = Qty.round(parts.sumOf { (qty, factor) -> qty * factor })
+
     /** Pesan kesalahan untuk daftar satuan besar, atau null jika valid. */
     fun validate(baseUnit: String, bigUnits: List<UnitOption>): String? {
         val names = mutableSetOf(baseUnit.trim().lowercase())

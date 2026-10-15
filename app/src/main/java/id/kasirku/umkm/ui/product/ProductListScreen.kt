@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -21,6 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -81,6 +83,7 @@ fun ProductListScreen(
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onOpen: (Long) -> Unit,
+    onCount: () -> Unit,
     vm: ProductListViewModel = viewModel(factory = ProductListViewModel.Factory),
 ) {
     val query by vm.query.collectAsStateWithLifecycle()
@@ -115,6 +118,13 @@ fun ProductListScreen(
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !lowOnly, onClick = { vm.lowOnly.value = false }, label = { Text("Semua") })
                 FilterChip(selected = lowOnly, onClick = { vm.lowOnly.value = true }, label = { Text("Stok menipis") })
+            }
+            OutlinedButton(
+                onClick = onCount,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Icon(Icons.Filled.Checklist, contentDescription = null)
+                Text("  Hitung Stok (cocokkan dengan rak)")
             }
 
             val list = products
