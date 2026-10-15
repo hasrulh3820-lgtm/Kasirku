@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon kasir sederhana: badan mesin kasir + layar + laci -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- layar -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,32h28a3,3 0,0 1,3 3v10a3,3 0,0 1,-3 3h-28a3,3 0,0 1,-3 -3v-10a3,3 0,0 1,3 -3z" />
+    <!-- badan -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34,52h40l4,16h-48z" />
+    <!-- laci -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M28,71h52v7a3,3 0,0 1,-3 3h-46a3,3 0,0 1,-3 -3z" />
+    <!-- tombol (lubang) -->
+    <path
+        android:fillColor="#FF1B6B3A"
+        android:pathData="M42,57h5v4h-5zM51.5,57h5v4h-5zM61,57h5v4h-5zM50,74h8v2h-8z" />
+</vector>

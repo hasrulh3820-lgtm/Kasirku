@@ -1,0 +1,196 @@
+package id.kasirku.umkm.ui.home
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AddBox
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import id.kasirku.umkm.data.db.dao.ProductWithCategory
+import id.kasirku.umkm.data.repository.DashboardRepository
+import id.kasirku.umkm.data.repository.ProductRepository
+import id.kasirku.umkm.domain.Money
+import id.kasirku.umkm.domain.ProfitSummary
+import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.ui.components.BigMenuButton
+import id.kasirku.umkm.ui.components.KasirTopBar
+import id.kasirku.umkm.ui.components.SectionCard
+import id.kasirku.umkm.ui.components.StatTile
+import id.kasirku.umkm.ui.kasirApp
+import id.kasirku.umkm.ui.theme.Loss
+import id.kasirku.umkm.ui.theme.Profit
+import id.kasirku.umkm.ui.theme.Warn
+import id.kasirku.umkm.util.Waktu
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+
+data class HomeState(
+    val today: ProfitSummary = ProfitSummary.EMPTY,
+    val month: ProfitSummary = ProfitSummary.EMPTY,
+    val lowStock: List<ProductWithCategory> = emptyList(),
+)
+
+class HomeViewModel(dashboard: DashboardRepository, products: ProductRepository) : ViewModel() {
+    val state: StateFlow<HomeState> = combine(
+        dashboard.observeSummary(Waktu.todayRange()),
+        dashboard.observeSummary(Waktu.monthRange()),
+        products.observeLowStock(),
+    ) { today, month, low -> HomeState(today, month, low) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val c = kasirApp().container
+                HomeViewModel(c.dashboardRepo, c.productRepo)
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeScreen(
+    onProducts: () -> Unit,
+    onAddProduct: () -> Unit,
+    onProductClick: (Long) -> Unit,
+    vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
+) {
+    val state by vm.state.collectAsStateWithLifecycle()
+
+    Scaffold(topBar = { KasirTopBar(title = "KasirKu UMKM", subtitle = Waktu.todayLabel()) }) { pad ->
+        LazyColumn(
+            modifier = Modifier.padding(pad).fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { SummaryCard(title = "Hari ini", s = state.today) }
+
+            item {
+                BigMenuButton(
+                    icon = Icons.Filled.PointOfSale, title = "Mulai Kasir",
+                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                )
+            }
+            item {
+                BigMenuButton(
+                    icon = Icons.Filled.Inventory2, title = "Produk dan Stok",
+                    subtitle = "Lihat stok, barang masuk, riwayat", onClick = onProducts, highlight = true,
+                )
+            }
+            item {
+                BigMenuButton(
+                    icon = Icons.Filled.AddBox, title = "Tambah Barang",
+                    subtitle = "Daftarkan barang baru", onClick = onAddProduct,
+                )
+            }
+            item {
+                BigMenuButton(
+                    icon = Icons.Filled.BarChart, title = "Laporan",
+                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                )
+            }
+            item {
+                BigMenuButton(
+                    icon = Icons.Filled.AccountBalanceWallet, title = "Utang Pelanggan",
+                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                )
+            }
+
+            item { SummaryCard(title = "Bulan ${Waktu.monthLabel()}", s = state.month) }
+
+            if (state.lowStock.isNotEmpty()) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                        Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Warn)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Stok menipis (${state.lowStock.size})",
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+                item {
+                    SectionCard {
+                        Column {
+                            state.lowStock.forEachIndexed { i, p ->
+                                if (i > 0) HorizontalDivider()
+                                LowStockRow(p) { onProductClick(p.id) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(title: String, s: ProfitSummary) {
+    SectionCard {
+        Column {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth()) {
+                StatTile("Omzet (penjualan)", Money.format(s.omzet), Modifier.weight(1f))
+                StatTile("Jumlah transaksi", s.trxCount.toString(), Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth()) {
+                StatTile("Modal barang terjual", Money.format(s.hpp), Modifier.weight(1f))
+                StatTile("Laba kotor", Money.format(s.grossProfit), Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth()) {
+                StatTile("Pengeluaran lain", Money.format(s.expenses), Modifier.weight(1f))
+                StatTile(
+                    "Laba bersih", Money.format(s.netProfit), Modifier.weight(1f),
+                    valueColor = if (s.netProfit < 0) Loss else Profit, strong = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LowStockRow(p: ProductWithCategory, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(p.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "sisa ${Qty.format(p.stockQty)} ${p.unit}",
+            color = if (p.stockQty <= 0) Loss else Warn, fontWeight = FontWeight.Bold,
+        )
+    }
+}

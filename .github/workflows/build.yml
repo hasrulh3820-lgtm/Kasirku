@@ -1,0 +1,49 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Uji perhitungan (unit test)
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: Bangun APK debug
+        run: gradle assembleDebug --stacktrace
+
+      - name: Beri nama APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk KasirKu-debug-${{ github.run_number }}.apk
+
+      - name: Simpan hasil tes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hasil-tes
+          path: app/build/reports/tests/
+
+      - name: Terbitkan APK untuk diunduh dari HP
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: KasirKu debug build ${{ github.run_number }}
+          prerelease: true
+          body: APK debug untuk uji coba. Unduh file .apk di bawah, lalu pasang di HP Android.
+          files: KasirKu-debug-${{ github.run_number }}.apk
