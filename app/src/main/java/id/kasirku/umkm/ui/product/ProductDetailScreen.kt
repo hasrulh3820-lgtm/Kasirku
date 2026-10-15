@@ -54,6 +54,8 @@ import id.kasirku.umkm.data.repository.ProductRepository
 import id.kasirku.umkm.data.repository.RepoResult
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.domain.UnitCalc
+import id.kasirku.umkm.domain.UnitOption
 import id.kasirku.umkm.ui.components.ConfirmDialog
 import id.kasirku.umkm.ui.components.KasirTopBar
 import id.kasirku.umkm.ui.components.QtyField
@@ -80,6 +82,8 @@ class ProductDetailViewModel(private val repo: ProductRepository, handle: SavedS
 
     val product: StateFlow<Product?> = repo.observeProduct(productId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val units: StateFlow<List<UnitOption>> = repo.observeUnits(productId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val movements: StateFlow<List<StockMovement>> = repo.observeMovements(productId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -133,6 +137,7 @@ fun ProductDetailScreen(
 ) {
     val product by vm.product.collectAsStateWithLifecycle()
     val movements by vm.movements.collectAsStateWithLifecycle()
+    val units by vm.units.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var showAdjust by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
@@ -168,8 +173,24 @@ fun ProductDetailScreen(
                             StatTile("Harga jual", Money.format(p.sellPrice), Modifier.weight(1f))
                             StatTile("Modal rata-rata", Money.format(p.costPrice), Modifier.weight(1f))
                         }
+                        if (units.isNotEmpty()) {
+                            Text(
+                                "= ${UnitCalc.breakdown(p.stockQty, p.unit, units)}",
+                                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                         val margin = p.sellPrice - p.costPrice
                         StatTile("Untung per ${p.unit}", Money.format(margin), valueColor = if (margin < 0) Loss else Profit)
+                        units.forEach { u ->
+                            val cost = UnitCalc.costPerUnit(p.costPrice, u.factor)
+                            val m = u.sellPrice - cost
+                            Text(
+                                "${u.name} (isi ${Qty.format(u.factor)} ${p.unit}): jual ${Money.format(u.sellPrice)} · modal ${Money.format(cost)} · untung ${Money.format(m)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (m < 0) Loss else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
                         val ids = listOfNotNull(p.sku?.let { "SKU $it" }, p.barcode?.let { "Barcode $it" }).joinToString(" · ")
                         if (ids.isNotEmpty()) Text(ids, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

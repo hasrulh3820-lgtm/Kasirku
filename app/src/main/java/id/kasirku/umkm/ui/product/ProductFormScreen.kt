@@ -13,6 +13,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.Alignment
+import id.kasirku.umkm.ui.components.SectionCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -42,6 +49,8 @@ import id.kasirku.umkm.data.repository.ProductRepository
 import id.kasirku.umkm.data.repository.RepoResult
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.domain.UnitCalc
+import id.kasirku.umkm.domain.UnitOption
 import id.kasirku.umkm.ui.components.KasirTopBar
 import id.kasirku.umkm.ui.components.MoneyField
 import id.kasirku.umkm.ui.components.QtyField
@@ -57,6 +66,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 val UNITS = listOf("pcs", "pack", "dus", "lusin", "kg", "gram", "liter", "botol", "sachet", "pasang", "meter")
+val BIG_UNITS = listOf("renteng", "pak", "slop", "lusin", "dus", "karton", "bal", "karung", "kodi")
+
+/** Isian satuan besar di form (masih teks, divalidasi saat Simpan). */
+data class BigUnitDraft(val name: String = "", val factor: String = "", val price: String = "")
 
 data class ProductForm(
     val name: String = "",
@@ -68,6 +81,7 @@ data class ProductForm(
     val sell: String = "",
     val initialStock: String = "",
     val minStock: String = "5",
+    val bigUnits: List<BigUnitDraft> = emptyList(),
     /** Hanya untuk tampilan saat edit. */
     val currentStock: Double = 0.0,
 )
@@ -99,6 +113,7 @@ class ProductFormViewModel(private val repo: ProductRepository, handle: SavedSta
                 if (p == null) {
                     _ui.update { it.copy(loaded = true, generalError = "Barang tidak ditemukan.") }
                 } else {
+                    val units = repo.getUnits(p.id)
                     _ui.update {
                         it.copy(
                             loaded = true,
@@ -107,6 +122,7 @@ class ProductFormViewModel(private val repo: ProductRepository, handle: SavedSta
                                 category = repo.categoryName(p.categoryId), unit = p.unit,
                                 cost = p.costPrice.toString(), sell = p.sellPrice.toString(),
                                 minStock = Qty.format(p.minStock), currentStock = p.stockQty,
+                                bigUnits = units.map { u -> BigUnitDraft(u.name, Qty.format(u.factor), u.sellPrice.toString()) },
                             ),
                         )
                     }
@@ -133,8 +149,16 @@ class ProductFormViewModel(private val repo: ProductRepository, handle: SavedSta
         if (initial == null || initial < 0) errors["initialStock"] = "Stok awal tidak valid"
         val min = if (f.minStock.isBlank()) 0.0 else Qty.parse(f.minStock)
         if (min == null || min < 0) errors["minStock"] = "Batas stok tidak valid"
+        val bigUnits = f.bigUnits.mapIndexed { i, d ->
+            val factor = Qty.parse(d.factor)
+            val price = Money.parse(d.price)
+            if (factor == null) errors["unitFactor$i"] = "Isi wajib diisi"
+            if (price == null) errors["unitPrice$i"] = "Harga wajib diisi"
+            UnitOption(name = d.name.trim(), factor = factor ?: 0.0, sellPrice = price ?: 0L)
+        }
+        if (errors.isEmpty()) UnitCalc.validate(f.unit, bigUnits)?.let { errors["units"] = it }
         if (errors.isNotEmpty()) {
-            _ui.update { it.copy(errors = errors, generalError = "Periksa kembali isian yang berwarna merah.") }
+            _ui.update { it.copy(errors = errors, generalError = errors["units"] ?: "Periksa kembali isian yang berwarna merah.") }
             return
         }
         _ui.update { it.copy(saving = true, errors = emptyMap(), generalError = null) }
@@ -143,6 +167,7 @@ class ProductFormViewModel(private val repo: ProductRepository, handle: SavedSta
                 ProductInput(
                     id = productId, name = f.name, sku = f.sku, barcode = f.barcode, categoryName = f.category,
                     unit = f.unit, costPrice = cost!!, sellPrice = sell!!, initialStock = initial!!, minStock = min!!,
+                    bigUnits = bigUnits,
                 ),
             )
             when (result) {
@@ -201,6 +226,15 @@ fun ProductFormScreen(
                 }
             }
 
+            BigUnitsSection(
+                baseUnit = f.unit,
+                baseCost = Money.parse(f.cost) ?: 0L,
+                baseSell = Money.parse(f.sell),
+                drafts = f.bigUnits,
+                errors = ui.errors,
+                onChange = { list -> vm.edit { it.copy(bigUnits = list) } },
+            )
+
             if (vm.isEdit) {
                 Text(
                     "Stok sekarang: ${Qty.format(f.currentStock)} ${f.unit}. Ubah stok lewat \"Barang Masuk\" atau \"Koreksi Stok\" di halaman barang.",
@@ -209,7 +243,12 @@ fun ProductFormScreen(
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
             } else {
-                QtyField("Stok awal", f.initialStock, { v -> vm.edit { it.copy(initialStock = v) } }, suffix = f.unit, error = ui.errors["initialStock"])
+                QtyField("Stok awal (dalam ${f.unit})", f.initialStock, { v -> vm.edit { it.copy(initialStock = v) } }, suffix = f.unit, error = ui.errors["initialStock"])
+                val initial = Qty.parse(f.initialStock)
+                val previewUnits = f.bigUnits.mapNotNull { d -> Qty.parse(d.factor)?.takeIf { it > 1 }?.let { UnitOption(d.name.ifBlank { "?" }, it, 0) } }
+                if (initial != null && initial > 0 && previewUnits.isNotEmpty()) {
+                    Text("= ${UnitCalc.breakdown(initial, f.unit, previewUnits)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
 
             if (!showMore) {
@@ -251,6 +290,79 @@ fun ProductFormScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(56.dp),
             ) {
                 Text(if (ui.saving) "Menyimpan…" else "Simpan", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BigUnitsSection(
+    baseUnit: String,
+    baseCost: Long,
+    baseSell: Long?,
+    drafts: List<BigUnitDraft>,
+    errors: Map<String, String>,
+    onChange: (List<BigUnitDraft>) -> Unit,
+) {
+    Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Jual per renteng / dus (opsional)", style = MaterialTheme.typography.labelLarge)
+        Text(
+            "Stok tetap dihitung dalam $baseUnit. Contoh: Renteng isi 10, Dus isi 40.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        drafts.forEachIndexed { i, d ->
+            SectionCard {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = d.name,
+                            onValueChange = { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(name = v.take(20)) }) },
+                            label = { Text("Nama satuan") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { onChange(drafts.toMutableList().also { it.removeAt(i) }) }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Hapus satuan ini")
+                        }
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                        items(BIG_UNITS.filter { it != baseUnit }) { name ->
+                            FilterChip(
+                                selected = d.name.equals(name, ignoreCase = true),
+                                onClick = { onChange(drafts.toMutableList().also { it[i] = d.copy(name = name) }) },
+                                label = { Text(name) },
+                            )
+                        }
+                    }
+                    QtyField(
+                        "Isi 1 ${d.name.ifBlank { "satuan" }}", d.factor,
+                        { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(factor = v) }) },
+                        suffix = baseUnit, error = errors["unitFactor$i"],
+                    )
+                    MoneyField(
+                        "Harga jual per ${d.name.ifBlank { "satuan" }}", d.price,
+                        { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(price = v) }) },
+                        error = errors["unitPrice$i"],
+                    )
+                    val factor = Qty.parse(d.factor)
+                    val price = Money.parse(d.price)
+                    if (factor != null && factor > 1 && price != null && price > 0) {
+                        val perBase = (price / factor).toLong()
+                        val cost = UnitCalc.costPerUnit(baseCost, factor)
+                        val info = buildString {
+                            append("≈ ${Money.format(perBase)} per $baseUnit")
+                            if (baseSell != null && baseSell > 0 && perBase > baseSell) append(" (lebih mahal dari ecer!)")
+                            if (baseCost > 0) append(" · modal ${Money.format(cost)} · untung ${Money.format(price - cost)}")
+                        }
+                        Text(info, style = MaterialTheme.typography.bodySmall, color = if (price < cost) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        if (drafts.size < 2) {
+            OutlinedButton(onClick = { onChange(drafts + BigUnitDraft()) }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (drafts.isEmpty()) "+ Tambah satuan besar (renteng, dus, …)" else "+ Tambah satuan besar lagi")
             }
         }
     }

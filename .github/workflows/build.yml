@@ -32,6 +32,12 @@ jobs:
       - name: Beri nama APK
         run: cp app/build/outputs/apk/debug/app-debug.apk KasirKu-debug-${{ github.run_number }}.apk
 
+      - name: Simpan skema database
+        uses: actions/upload-artifact@v4
+        with:
+          name: skema-database
+          path: app/schemas/
+
       - name: Simpan hasil tes
         if: always()
         uses: actions/upload-artifact@v4

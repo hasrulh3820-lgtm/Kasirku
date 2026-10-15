@@ -1,5 +1,6 @@
 package id.kasirku.umkm.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -51,6 +52,25 @@ data class Product(
     val isDemo: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long,
+)
+
+/**
+ * Satuan besar sebuah barang, mis. Renteng = 10 pcs, Dus = 40 pcs.
+ * Satuan dasar (pcs) tetap ada di Product.unit / Product.sellPrice; stok selalu dalam satuan dasar.
+ * factor = isi satuan ini dalam satuan dasar. sellPrice = harga jual per satuan ini.
+ */
+@Entity(
+    tableName = "product_units",
+    indices = [Index(value = ["productId"]), Index(value = ["barcode"], unique = true)],
+)
+data class ProductUnit(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val name: String,
+    val factor: Double,
+    val sellPrice: Long,
+    val barcode: String? = null,
+    val sortOrder: Int = 0,
 )
 
 object MovementType {
@@ -128,12 +148,16 @@ data class SaleItem(
     val saleId: Long,
     val productId: Long,
     val productName: String,
+    /** Nama satuan yang dijual (pcs / renteng / dus). */
     val unit: String,
+    /** Jumlah dalam satuan yang dijual. Stok berkurang qty × unitFactor (satuan dasar). */
     val qty: Double,
+    /** Harga jual & modal per satuan yang dijual. */
     val sellPrice: Long,
     val costPrice: Long,
     val discount: Long,
     val lineTotal: Long,
+    @ColumnInfo(defaultValue = "1") val unitFactor: Double = 1.0,
 )
 
 @Entity(tableName = "debt_payments", indices = [Index(value = ["saleId"]), Index(value = ["customerId"])])

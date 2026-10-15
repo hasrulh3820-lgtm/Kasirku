@@ -42,6 +42,8 @@ import id.kasirku.umkm.data.db.dao.ProductWithCategory
 import id.kasirku.umkm.data.repository.ProductRepository
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.domain.UnitCalc
+import id.kasirku.umkm.domain.UnitOption
 import id.kasirku.umkm.ui.components.KasirTopBar
 import id.kasirku.umkm.ui.kasirApp
 import id.kasirku.umkm.ui.theme.Loss
@@ -55,6 +57,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
 class ProductListViewModel(repo: ProductRepository) : ViewModel() {
+    val units: StateFlow<Map<Long, List<UnitOption>>> = repo.observeAllUnits()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     val query = MutableStateFlow("")
     val lowOnly = MutableStateFlow(false)
 
@@ -81,6 +86,7 @@ fun ProductListScreen(
     val query by vm.query.collectAsStateWithLifecycle()
     val lowOnly by vm.lowOnly.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
+    val units by vm.units.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { KasirTopBar("Produk dan Stok", onBack = onBack) },
@@ -119,7 +125,7 @@ fun ProductListScreen(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(list, key = { it.id }) { p -> ProductRow(p) { onOpen(p.id) } }
+                    items(list, key = { it.id }) { p -> ProductRow(p, units[p.id].orEmpty()) { onOpen(p.id) } }
                 }
             }
         }
@@ -145,7 +151,7 @@ private fun EmptyState(hasFilter: Boolean) {
 }
 
 @Composable
-private fun ProductRow(p: ProductWithCategory, onClick: () -> Unit) {
+private fun ProductRow(p: ProductWithCategory, bigUnits: List<UnitOption>, onClick: () -> Unit) {
     val low = p.stockQty <= p.minStock
     Card(
         onClick = onClick,
@@ -159,7 +165,13 @@ private fun ProductRow(p: ProductWithCategory, onClick: () -> Unit) {
                 Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val meta = listOfNotNull(p.categoryName, p.sku).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(Money.format(p.sellPrice), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    (listOf("${Money.format(p.sellPrice)}/${p.unit}") + bigUnits.map { "${Money.format(it.sellPrice)}/${it.name}" }).joinToString("  ·  "),
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                )
+                if (bigUnits.isNotEmpty() && p.stockQty > 0) {
+                    Text(UnitCalc.breakdown(p.stockQty, p.unit, bigUnits), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(

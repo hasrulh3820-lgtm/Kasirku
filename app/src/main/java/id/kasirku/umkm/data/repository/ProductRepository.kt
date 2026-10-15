@@ -7,13 +7,17 @@ import id.kasirku.umkm.data.db.dao.ProductWithCategory
 import id.kasirku.umkm.data.db.entity.Category
 import id.kasirku.umkm.data.db.entity.MovementType
 import id.kasirku.umkm.data.db.entity.Product
+import id.kasirku.umkm.data.db.entity.ProductUnit
 import id.kasirku.umkm.data.db.entity.Purchase
 import id.kasirku.umkm.data.db.entity.PurchaseItem
 import id.kasirku.umkm.data.db.entity.StockMovement
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.domain.UnitCalc
+import id.kasirku.umkm.domain.UnitOption
 import id.kasirku.umkm.util.Waktu
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlin.math.roundToLong
 
 data class ProductInput(
@@ -28,6 +32,8 @@ data class ProductInput(
     /** Hanya dipakai saat produk baru. Stok produk lama diubah lewat Barang Masuk / Koreksi Stok. */
     val initialStock: Double,
     val minStock: Double,
+    /** Satuan besar (maks. 2), mis. renteng & dus. Boleh kosong. */
+    val bigUnits: List<UnitOption> = emptyList(),
 )
 
 sealed interface RepoResult {
@@ -53,6 +59,28 @@ class ProductRepository(private val db: AppDatabase) {
 
     suspend fun getProduct(id: Long): Product? = productDao.getById(id)
 
+    fun observeUnits(productId: Long): Flow<List<UnitOption>> =
+        productDao.observeUnits(productId).map { list -> list.map { it.toOption() } }
+
+    suspend fun getUnits(productId: Long): List<UnitOption> = productDao.getUnits(productId).map { it.toOption() }
+
+    /** Satuan besar semua barang, dikelompokkan per productId (untuk daftar barang). */
+    fun observeAllUnits(): Flow<Map<Long, List<UnitOption>>> =
+        productDao.observeAllUnits().map { list -> list.groupBy({ it.productId }, { it.toOption() }) }
+
+    private fun ProductUnit.toOption() = UnitOption(name = name, factor = factor, sellPrice = sellPrice)
+
+    private suspend fun replaceUnits(productId: Long, units: List<UnitOption>) {
+        productDao.deleteUnits(productId)
+        if (units.isNotEmpty()) {
+            productDao.insertUnits(
+                units.sortedBy { it.factor }.mapIndexed { i, u ->
+                    ProductUnit(productId = productId, name = u.name.trim(), factor = Qty.round(u.factor), sellPrice = u.sellPrice, sortOrder = i)
+                },
+            )
+        }
+    }
+
     suspend fun categoryName(id: Long?): String = id?.let { productDao.categoryName(it) } ?: ""
 
     suspend fun saveProduct(input: ProductInput): RepoResult {
@@ -62,6 +90,8 @@ class ProductRepository(private val db: AppDatabase) {
         if (input.costPrice < 0) return RepoResult.Error("Harga modal tidak boleh minus.")
         if (input.initialStock < 0) return RepoResult.Error("Stok awal tidak boleh minus.")
         if (input.minStock < 0) return RepoResult.Error("Batas stok menipis tidak boleh minus.")
+        if (input.bigUnits.size > 2) return RepoResult.Error("Maksimal 2 satuan besar.")
+        UnitCalc.validate(input.unit, input.bigUnits)?.let { return RepoResult.Error(it) }
 
         val now = Waktu.now()
         return try {
@@ -79,6 +109,7 @@ class ProductRepository(private val db: AppDatabase) {
                             createdAt = now, updatedAt = now,
                         ),
                     )
+                    replaceUnits(id, input.bigUnits)
                     if (stock > 0) {
                         stockDao.insertMovement(
                             StockMovement(
@@ -97,6 +128,7 @@ class ProductRepository(private val db: AppDatabase) {
                             minStock = Qty.round(input.minStock), updatedAt = now,
                         ),
                     )
+                    replaceUnits(old.id, input.bigUnits)
                     RepoResult.Ok(old.id, "Perubahan disimpan.")
                 }
             }
@@ -105,30 +137,46 @@ class ProductRepository(private val db: AppDatabase) {
         }
     }
 
-    /** Barang masuk dari pemasok: tambah stok, catat pembelian, perbarui modal rata-rata. */
-    suspend fun stockIn(productId: Long, qty: Double, unitCost: Long, supplier: String, note: String): RepoResult {
+    /**
+     * Barang masuk dari pemasok: tambah stok, catat pembelian, perbarui modal rata-rata.
+     * [qty] dan [unitCost] dalam satuan yang dipilih (mis. 5 dus @ Rp 110.000);
+     * [factor] = isi satuan itu dalam satuan dasar (dus = 40). Satuan dasar: factor 1.
+     */
+    suspend fun stockIn(
+        productId: Long,
+        qty: Double,
+        unitCost: Long,
+        supplier: String,
+        note: String,
+        unitName: String? = null,
+        factor: Double = 1.0,
+    ): RepoResult {
         val q = Qty.round(qty)
         if (q <= 0) return RepoResult.Error("Jumlah barang masuk harus lebih dari 0.")
         if (unitCost < 0) return RepoResult.Error("Harga beli tidak boleh minus.")
+        if (factor <= 0.0) return RepoResult.Error("Isi satuan tidak valid.")
+        val baseQty = UnitCalc.toBase(q, factor)
+        val baseCost = UnitCalc.baseCostFrom(unitCost, factor)
         val now = Waktu.now()
         return db.withTransaction<RepoResult> {
             val p = productDao.getById(productId) ?: return@withTransaction RepoResult.Error("Barang tidak ditemukan.")
-            val newQty = Qty.round(p.stockQty + q)
-            val newCost = Money.weightedAverageCost(p.stockQty, p.costPrice, q, unitCost)
+            val newQty = Qty.round(p.stockQty + baseQty)
+            val newCost = Money.weightedAverageCost(p.stockQty, p.costPrice, baseQty, baseCost)
             val purchaseId = stockDao.insertPurchase(
                 Purchase(supplierName = supplier.trim(), total = (q * unitCost).roundToLong(), note = note.trim(), createdAt = now),
             )
-            stockDao.insertPurchaseItem(PurchaseItem(purchaseId = purchaseId, productId = productId, qty = q, unitCost = unitCost))
+            stockDao.insertPurchaseItem(PurchaseItem(purchaseId = purchaseId, productId = productId, qty = baseQty, unitCost = baseCost))
             productDao.update(p.copy(stockQty = newQty, costPrice = newCost, updatedAt = now))
+            val label = if (factor != 1.0 && unitName != null) "${Qty.format(q)} $unitName @ ${Money.format(unitCost)}" else ""
             stockDao.insertMovement(
                 StockMovement(
-                    productId = productId, type = MovementType.PURCHASE, qtyChange = q, qtyAfter = newQty,
-                    unitCost = unitCost, refType = "PURCHASE", refId = purchaseId,
-                    note = listOf(supplier.trim(), note.trim()).filter { it.isNotEmpty() }.joinToString(" · "),
+                    productId = productId, type = MovementType.PURCHASE, qtyChange = baseQty, qtyAfter = newQty,
+                    unitCost = baseCost, refType = "PURCHASE", refId = purchaseId,
+                    note = listOf(label, supplier.trim(), note.trim()).filter { it.isNotEmpty() }.joinToString(" · "),
                     createdAt = now,
                 ),
             )
-            RepoResult.Ok(productId, "Stok bertambah ${Qty.format(q)} ${p.unit}.")
+            RepoResult.Ok(productId, "Stok bertambah ${Qty.format(baseQty)} ${p.unit}.")
         }
     }
 
@@ -165,6 +213,7 @@ class ProductRepository(private val db: AppDatabase) {
             RepoResult.Ok(productId, "\"${p.name}\" punya riwayat transaksi, jadi diarsipkan (disembunyikan), bukan dihapus.")
         } else {
             stockDao.deleteMovementsForProduct(productId)
+            productDao.deleteUnits(productId)
             productDao.delete(productId)
             RepoResult.Ok(productId, "\"${p.name}\" dihapus.")
         }

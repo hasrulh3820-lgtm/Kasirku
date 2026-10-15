@@ -37,6 +37,10 @@ import id.kasirku.umkm.data.repository.ProductRepository
 import id.kasirku.umkm.data.repository.RepoResult
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.Qty
+import id.kasirku.umkm.domain.UnitCalc
+import id.kasirku.umkm.domain.UnitOption
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.FilterChip
 import id.kasirku.umkm.ui.components.KasirTopBar
 import id.kasirku.umkm.ui.components.MoneyField
 import id.kasirku.umkm.ui.components.QtyField
@@ -57,10 +61,13 @@ class StockInViewModel(private val repo: ProductRepository, handle: SavedStateHa
     val product: StateFlow<Product?> = repo.observeProduct(productId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val units: StateFlow<List<UnitOption>> = repo.observeUnits(productId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _ui = MutableStateFlow(StockInUi())
     val ui: StateFlow<StockInUi> = _ui.asStateFlow()
 
-    fun save(qtyText: String, costText: String, supplier: String, note: String) {
+    fun save(qtyText: String, costText: String, supplier: String, note: String, unitName: String, factor: Double) {
         if (_ui.value.saving) return
         val qty = Qty.parse(qtyText)
         val cost = Money.parse(costText)
@@ -70,7 +77,7 @@ class StockInViewModel(private val repo: ProductRepository, handle: SavedStateHa
         }
         _ui.value = StockInUi(saving = true)
         viewModelScope.launch {
-            _ui.value = when (val r = repo.stockIn(productId, qty!!, cost!!, supplier, note)) {
+            _ui.value = when (val r = repo.stockIn(productId, qty!!, cost!!, supplier, note, unitName = unitName, factor = factor)) {
                 is RepoResult.Ok -> StockInUi(done = r.message)
                 is RepoResult.Error -> StockInUi(error = r.message)
             }
@@ -92,10 +99,15 @@ fun StockInScreen(
 ) {
     val product by vm.product.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val units by vm.units.collectAsStateWithLifecycle()
     LaunchedEffect(ui.done) { ui.done?.let(onDone) }
 
     Scaffold(topBar = { KasirTopBar("Barang Masuk", onBack = onBack, subtitle = product?.name) }) { pad ->
         val p = product ?: return@Scaffold
+        // Pilihan satuan: satuan dasar + satuan besar. Disimpan sebagai nama agar tahan rotasi layar.
+        val options = listOf(UnitOption(p.unit, 1.0, p.sellPrice)) + units
+        var unitName by rememberSaveable { mutableStateOf(p.unit) }
+        val unit = options.firstOrNull { it.name == unitName } ?: options.first()
         var qty by rememberSaveable { mutableStateOf("") }
         var cost by rememberSaveable { mutableStateOf(p.costPrice.takeIf { it > 0 }?.toString() ?: "") }
         var supplier by rememberSaveable { mutableStateOf("") }
@@ -106,12 +118,31 @@ fun StockInScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                "Stok sekarang: ${Qty.format(p.stockQty)} ${p.unit} · modal ${Money.format(p.costPrice)}/${p.unit}",
+                "Stok sekarang: " + (if (units.isNotEmpty()) UnitCalc.breakdown(p.stockQty, p.unit, units) else "${Qty.format(p.stockQty)} ${p.unit}") +
+                    " · modal ${Money.format(p.costPrice)}/${p.unit}",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            QtyField("Jumlah masuk", qty, { qty = it }, suffix = p.unit)
-            MoneyField("Harga beli per ${p.unit}", cost, { cost = it })
+            if (options.size > 1) {
+                Text("Dicatat per", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    options.forEach { o ->
+                        FilterChip(
+                            selected = o.name == unit.name,
+                            onClick = {
+                                if (o.name != unit.name) {
+                                    unitName = o.name
+                                    // isi ulang harga beli sesuai satuan baru (dari modal rata-rata sekarang)
+                                    cost = UnitCalc.costPerUnit(p.costPrice, o.factor).takeIf { it > 0 }?.toString() ?: ""
+                                }
+                            },
+                            label = { Text(if (o.factor == 1.0) o.name else "${o.name} (${Qty.format(o.factor)} ${p.unit})") },
+                        )
+                    }
+                }
+            }
+            QtyField("Jumlah masuk", qty, { qty = it }, suffix = unit.name)
+            MoneyField("Harga beli per ${unit.name}", cost, { cost = it })
             OutlinedTextField(
                 value = supplier, onValueChange = { supplier = it }, label = { Text("Pemasok (boleh kosong)") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -124,12 +155,16 @@ fun StockInScreen(
             val q = Qty.parse(qty)
             val c = Money.parse(cost)
             if (q != null && q > 0 && c != null) {
-                val newCost = Money.weightedAverageCost(p.stockQty, p.costPrice, q, c)
+                val baseQty = UnitCalc.toBase(q, unit.factor)
+                val baseCost = UnitCalc.baseCostFrom(c, unit.factor)
+                val newCost = Money.weightedAverageCost(p.stockQty, p.costPrice, baseQty, baseCost)
+                val newStock = Qty.round(p.stockQty + baseQty)
                 SectionCard {
                     Column {
                         Text("Ringkasan", fontWeight = FontWeight.Bold)
                         Text("Total belanja: ${Money.format((q * c).roundToLong())}")
-                        Text("Stok menjadi: ${Qty.format(p.stockQty + q)} ${p.unit}")
+                        if (unit.factor != 1.0) Text("= ${Qty.format(baseQty)} ${p.unit} @ ${Money.format(baseCost)}/${p.unit}")
+                        Text("Stok menjadi: ${Qty.format(newStock)} ${p.unit}" + if (units.isNotEmpty()) " (${UnitCalc.breakdown(newStock, p.unit, units)})" else "")
                         Text("Modal rata-rata menjadi: ${Money.format(newCost)}/${p.unit}")
                         Text(
                             "Belanja barang tidak dihitung sebagai pengeluaran; modalnya baru dihitung saat barang terjual.",
@@ -143,7 +178,7 @@ fun StockInScreen(
             ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
 
             Button(
-                onClick = { vm.save(qty, cost, supplier, note) },
+                onClick = { vm.save(qty, cost, supplier, note, unit.name, unit.factor) },
                 enabled = !ui.saving && ui.done == null,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(56.dp),
             ) {

@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Update
 import id.kasirku.umkm.data.db.entity.Category
 import id.kasirku.umkm.data.db.entity.Product
+import id.kasirku.umkm.data.db.entity.ProductUnit
 import kotlinx.coroutines.flow.Flow
 
 /** Produk + nama kategorinya, untuk daftar produk. */
@@ -81,4 +82,21 @@ interface ProductDao {
 
     @Query("SELECT name FROM categories WHERE id = :id")
     suspend fun categoryName(id: Long): String?
+
+    // ---- Satuan besar ----
+
+    @Query("SELECT * FROM product_units WHERE productId = :productId ORDER BY factor ASC")
+    fun observeUnits(productId: Long): Flow<List<ProductUnit>>
+
+    @Query("SELECT * FROM product_units WHERE productId = :productId ORDER BY factor ASC")
+    suspend fun getUnits(productId: Long): List<ProductUnit>
+
+    @Query("SELECT * FROM product_units ORDER BY productId, factor ASC")
+    fun observeAllUnits(): Flow<List<ProductUnit>>
+
+    @Query("DELETE FROM product_units WHERE productId = :productId")
+    suspend fun deleteUnits(productId: Long)
+
+    @Insert
+    suspend fun insertUnits(units: List<ProductUnit>)
 }
