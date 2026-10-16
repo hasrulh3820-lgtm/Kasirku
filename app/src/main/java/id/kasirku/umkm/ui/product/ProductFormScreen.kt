@@ -65,7 +65,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-val UNITS = listOf("pcs", "pack", "dus", "lusin", "kg", "gram", "liter", "botol", "sachet", "pasang", "meter")
+val UNITS = listOf("pcs", "bungkus", "botol", "sachet", "pack", "kg", "gram", "liter", "pasang", "meter", "lembar", "biji")
 val BIG_UNITS = listOf("renteng", "pak", "slop", "lusin", "dus", "karton", "bal", "karung", "kodi")
 
 /** Isian satuan besar di form (masih teks, divalidasi saat Simpan). */
@@ -210,8 +210,8 @@ fun ProductFormScreen(
                 supportingText = { ui.errors["name"]?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
             )
-            MoneyField("Harga jual *", f.sell, { v -> vm.edit { it.copy(sell = v) } }, error = ui.errors["sell"])
-            MoneyField("Harga modal (beli)", f.cost, { v -> vm.edit { it.copy(cost = v) } }, error = ui.errors["cost"])
+            MoneyField("Harga jual per ${f.unit} (eceran) *", f.sell, { v -> vm.edit { it.copy(sell = v) } }, error = ui.errors["sell"])
+            MoneyField("Harga modal per ${f.unit}", f.cost, { v -> vm.edit { it.copy(cost = v) } }, error = ui.errors["cost"])
 
             val sell = Money.parse(f.sell)
             val cost = Money.parse(f.cost)
@@ -219,7 +219,7 @@ fun ProductFormScreen(
                 Text("Perhatian: harga jual lebih rendah dari modal.", color = Warn, style = MaterialTheme.typography.bodySmall)
             }
 
-            Text("Satuan", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            Text("Satuan terkecil / eceran (biasanya pcs)", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(UNITS) { u ->
                     FilterChip(selected = f.unit == u, onClick = { vm.edit { it.copy(unit = u) } }, label = { Text(u) })
@@ -305,9 +305,9 @@ private fun BigUnitsSection(
     onChange: (List<BigUnitDraft>) -> Unit,
 ) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Jual per renteng / dus (opsional)", style = MaterialTheme.typography.labelLarge)
+        Text("Satuan besar: renteng / dus (opsional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Stok tetap dihitung dalam $baseUnit. Contoh: Renteng isi 10, Dus isi 40.",
+            "Isi di sini kalau barang juga dijual per renteng / dus. Contoh: Dus, isi 40 $baseUnit, harga per dus Rp 125.000. Stok tetap dihitung dalam $baseUnit.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -318,7 +318,7 @@ private fun BigUnitsSection(
                         OutlinedTextField(
                             value = d.name,
                             onValueChange = { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(name = v.take(20)) }) },
-                            label = { Text("Nama satuan") },
+                            label = { Text("Satuan besar ${i + 1} (pilih di bawah)") },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -336,12 +336,12 @@ private fun BigUnitsSection(
                         }
                     }
                     QtyField(
-                        "Isi 1 ${d.name.ifBlank { "satuan" }}", d.factor,
+                        "1 ${d.name.ifBlank { "satuan besar" }} berisi berapa $baseUnit?", d.factor,
                         { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(factor = v) }) },
                         suffix = baseUnit, error = errors["unitFactor$i"],
                     )
                     MoneyField(
-                        "Harga jual per ${d.name.ifBlank { "satuan" }}", d.price,
+                        "Harga jual per ${d.name.ifBlank { "satuan besar" }}", d.price,
                         { v -> onChange(drafts.toMutableList().also { it[i] = d.copy(price = v) }) },
                         error = errors["unitPrice$i"],
                     )
