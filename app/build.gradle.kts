@@ -13,8 +13,8 @@ android {
         applicationId = "id.kasirku.umkm"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4.1"
+        versionCode = 6
+        versionName = "0.5.0"
     }
 
     // Kunci debug tetap (disimpan di repo) agar APK debug dari setiap build bisa saling update.

@@ -11,6 +11,9 @@ import androidx.navigation.navArgument
 import id.kasirku.umkm.ui.cashier.CashierScreen
 import id.kasirku.umkm.ui.cashier.ReceiptScreen
 import id.kasirku.umkm.ui.cashier.SalesHistoryScreen
+import id.kasirku.umkm.ui.debt.CustomerDebtScreen
+import id.kasirku.umkm.ui.debt.DebtListScreen
+import id.kasirku.umkm.ui.expense.ExpenseScreen
 import id.kasirku.umkm.ui.home.HomeScreen
 import id.kasirku.umkm.ui.settings.StoreProfileScreen
 import id.kasirku.umkm.ui.product.ProductDetailScreen
@@ -30,6 +33,11 @@ object Routes {
     const val RECEIPT = "receipt/{id}"
     const val SALES = "sales"
     const val STORE = "store"
+    const val DEBTS = "debts"
+    const val DEBT_CUSTOMER = "debt/{id}"
+    const val EXPENSES = "expenses"
+
+    fun debtCustomer(id: Long) = "debt/$id"
 
     fun receipt(id: Long) = "receipt/$id"
 
@@ -53,7 +61,18 @@ fun KasirKuNavHost() {
                 onCashier = { nav.navigate(Routes.CASHIER) },
                 onSales = { nav.navigate(Routes.SALES) },
                 onStore = { nav.navigate(Routes.STORE) },
+                onDebts = { nav.navigate(Routes.DEBTS) },
+                onExpenses = { nav.navigate(Routes.EXPENSES) },
             )
+        }
+        composable(Routes.DEBTS) {
+            DebtListScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.debtCustomer(it)) })
+        }
+        composable(Routes.DEBT_CUSTOMER, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
+            CustomerDebtScreen(onBack = { nav.popBackStack() }, onOpenSale = { nav.navigate(Routes.receipt(it)) })
+        }
+        composable(Routes.EXPENSES) {
+            ExpenseScreen(onBack = { nav.popBackStack() })
         }
         composable(Routes.CASHIER) {
             CashierScreen(

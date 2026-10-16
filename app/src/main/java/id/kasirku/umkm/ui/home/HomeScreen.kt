@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -92,6 +93,8 @@ fun HomeScreen(
     onCashier: () -> Unit,
     onSales: () -> Unit,
     onStore: () -> Unit,
+    onDebts: () -> Unit,
+    onExpenses: () -> Unit,
     vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -125,13 +128,13 @@ fun HomeScreen(
             item {
                 BigMenuButton(
                     icon = Icons.Filled.BarChart, title = "Laporan",
-                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                    subtitle = "Segera hadir di versi berikutnya", onClick = {}, enabled = false,
                 )
             }
             item {
                 BigMenuButton(
                     icon = Icons.Filled.AccountBalanceWallet, title = "Utang Pelanggan",
-                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                    subtitle = "Catat & terima cicilan utang", onClick = onDebts,
                 )
             }
 
@@ -140,9 +143,14 @@ fun HomeScreen(
                     OutlinedButton(onClick = onSales, modifier = Modifier.weight(1f)) {
                         Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null); Text("  Riwayat Penjualan")
                     }
-                    OutlinedButton(onClick = onStore, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Filled.Storefront, contentDescription = null); Text("  Profil Toko")
+                    OutlinedButton(onClick = onExpenses, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Payments, contentDescription = null); Text("  Pengeluaran")
                     }
+                }
+            }
+            item {
+                OutlinedButton(onClick = onStore, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Storefront, contentDescription = null); Text("  Profil Toko")
                 }
             }
 
