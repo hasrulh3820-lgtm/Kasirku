@@ -20,12 +20,14 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import id.kasirku.umkm.data.db.dao.ProductWithCategory
 import id.kasirku.umkm.data.repository.DashboardRepository
+import id.kasirku.umkm.data.backup.BackupManager
 import id.kasirku.umkm.data.repository.ProductRepository
 import id.kasirku.umkm.domain.Money
 import id.kasirku.umkm.domain.ProfitSummary
@@ -67,7 +70,9 @@ data class HomeState(
     val lowStock: List<ProductWithCategory> = emptyList(),
 )
 
-class HomeViewModel(dashboard: DashboardRepository, products: ProductRepository) : ViewModel() {
+class HomeViewModel(dashboard: DashboardRepository, products: ProductRepository, private val backup: BackupManager) : ViewModel() {
+    val lastBackupAt: Long get() = backup.lastBackupAt
+
     val state: StateFlow<HomeState> = combine(
         dashboard.observeSummary(Waktu.todayRange()),
         dashboard.observeSummary(Waktu.monthRange()),
@@ -79,7 +84,7 @@ class HomeViewModel(dashboard: DashboardRepository, products: ProductRepository)
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = kasirApp().container
-                HomeViewModel(c.dashboardRepo, c.productRepo)
+                HomeViewModel(c.dashboardRepo, c.productRepo, c.backup)
             }
         }
     }
@@ -95,6 +100,8 @@ fun HomeScreen(
     onStore: () -> Unit,
     onDebts: () -> Unit,
     onExpenses: () -> Unit,
+    onReport: () -> Unit,
+    onBackup: () -> Unit,
     vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -106,6 +113,29 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { SummaryCard(title = "Hari ini", s = state.today) }
+
+            val last = vm.lastBackupAt
+            val days = if (last == 0L) -1L else java.util.concurrent.TimeUnit.MILLISECONDS.toDays(Waktu.now() - last)
+            if (last == 0L || days >= 7) {
+                item {
+                    SectionCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = Warn)
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text(
+                                    if (last == 0L) "Data belum pernah di-backup" else "Backup terakhir $days hari lalu",
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    "Jika HP rusak atau aplikasi terhapus, data hilang tanpa backup.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            TextButton(onClick = onBackup) { Text("Backup") }
+                        }
+                    }
+                }
+            }
 
             item {
                 BigMenuButton(
@@ -128,7 +158,7 @@ fun HomeScreen(
             item {
                 BigMenuButton(
                     icon = Icons.Filled.BarChart, title = "Laporan",
-                    subtitle = "Segera hadir di versi berikutnya", onClick = {}, enabled = false,
+                    subtitle = "Laba, terlaris, stok, ekspor Excel", onClick = onReport,
                 )
             }
             item {
@@ -149,8 +179,13 @@ fun HomeScreen(
                 }
             }
             item {
-                OutlinedButton(onClick = onStore, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Filled.Storefront, contentDescription = null); Text("  Profil Toko")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onBackup, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Backup, contentDescription = null); Text("  Backup Data")
+                    }
+                    OutlinedButton(onClick = onStore, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Storefront, contentDescription = null); Text("  Profil Toko")
+                    }
                 }
             }
 

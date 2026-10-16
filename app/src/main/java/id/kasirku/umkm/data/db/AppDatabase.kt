@@ -10,6 +10,7 @@ import id.kasirku.umkm.data.db.dao.DashboardDao
 import id.kasirku.umkm.data.db.dao.DebtDao
 import id.kasirku.umkm.data.db.dao.ExpenseDao
 import id.kasirku.umkm.data.db.dao.ProductDao
+import id.kasirku.umkm.data.db.dao.ReportDao
 import id.kasirku.umkm.data.db.dao.SaleDao
 import id.kasirku.umkm.data.db.dao.StoreDao
 import id.kasirku.umkm.data.db.dao.StockDao
@@ -52,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun storeDao(): StoreDao
     abstract fun debtDao(): DebtDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun reportDao(): ReportDao
 
     companion object {
         /** v1 -> v2: multi-satuan. Data lama tidak dihapus. SQL-nya diuji di MigrationSqlTest. */
@@ -63,6 +65,9 @@ abstract class AppDatabase : RoomDatabase() {
 
         const val FILE_NAME = "kasirku.db"
 
+        /** Harus sama dengan `version` di @Database (dicek di tes). Dipakai untuk menolak backup dari versi lebih baru. */
+        const val VERSION = 2
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -73,5 +78,13 @@ abstract class AppDatabase : RoomDatabase() {
                     .build()
                     .also { instance = it }
             }
+
+        /** Tutup database & lupakan instance (dipakai saat memulihkan backup dan di tes). */
+        fun closeAndReset() {
+            synchronized(this) {
+                instance?.close()
+                instance = null
+            }
+        }
     }
 }

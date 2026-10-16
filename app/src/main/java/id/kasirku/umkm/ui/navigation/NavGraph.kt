@@ -15,6 +15,8 @@ import id.kasirku.umkm.ui.debt.CustomerDebtScreen
 import id.kasirku.umkm.ui.debt.DebtListScreen
 import id.kasirku.umkm.ui.expense.ExpenseScreen
 import id.kasirku.umkm.ui.home.HomeScreen
+import id.kasirku.umkm.ui.report.ReportScreen
+import id.kasirku.umkm.ui.settings.BackupScreen
 import id.kasirku.umkm.ui.settings.StoreProfileScreen
 import id.kasirku.umkm.ui.product.ProductDetailScreen
 import id.kasirku.umkm.ui.product.ProductFormScreen
@@ -36,6 +38,8 @@ object Routes {
     const val DEBTS = "debts"
     const val DEBT_CUSTOMER = "debt/{id}"
     const val EXPENSES = "expenses"
+    const val REPORT = "report"
+    const val BACKUP = "backup"
 
     fun debtCustomer(id: Long) = "debt/$id"
 
@@ -63,7 +67,19 @@ fun KasirKuNavHost() {
                 onStore = { nav.navigate(Routes.STORE) },
                 onDebts = { nav.navigate(Routes.DEBTS) },
                 onExpenses = { nav.navigate(Routes.EXPENSES) },
+                onReport = { nav.navigate(Routes.REPORT) },
+                onBackup = { nav.navigate(Routes.BACKUP) },
             )
+        }
+        composable(Routes.REPORT) {
+            ReportScreen(
+                onBack = { nav.popBackStack() },
+                onDebts = { nav.navigate(Routes.DEBTS) },
+                onProducts = { nav.navigate(Routes.PRODUCTS) },
+            )
+        }
+        composable(Routes.BACKUP) {
+            BackupScreen(onBack = { nav.popBackStack() })
         }
         composable(Routes.DEBTS) {
             DebtListScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.debtCustomer(it)) })

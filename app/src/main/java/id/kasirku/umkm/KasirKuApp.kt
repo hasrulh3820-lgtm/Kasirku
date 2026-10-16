@@ -7,6 +7,8 @@ import id.kasirku.umkm.data.repository.DashboardRepository
 import id.kasirku.umkm.data.repository.DebtRepository
 import id.kasirku.umkm.data.repository.ExpenseRepository
 import id.kasirku.umkm.data.repository.ProductRepository
+import id.kasirku.umkm.data.repository.ReportRepository
+import id.kasirku.umkm.data.backup.BackupManager
 import id.kasirku.umkm.data.repository.SaleRepository
 
 class AppContainer(context: Context) {
@@ -16,6 +18,8 @@ class AppContainer(context: Context) {
     val saleRepo = SaleRepository(db)
     val debtRepo = DebtRepository(db)
     val expenseRepo = ExpenseRepository(db)
+    val reportRepo = ReportRepository(db)
+    val backup = BackupManager(context.applicationContext)
 }
 
 class KasirKuApp : Application() {

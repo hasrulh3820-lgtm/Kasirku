@@ -29,6 +29,18 @@ object Waktu {
             today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     }
 
+    private val dayKeyFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd", locale)
+    private val dayLabelFmt = DateTimeFormatter.ofPattern("EEE, d MMM", locale)
+    private val fileDateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmm", locale)
+
+    fun dayKey(epochMs: Long): String = dayKeyFmt.format(Instant.ofEpochMilli(epochMs).atZone(zone))
+    fun dayLabel(dayKey: String): String = dayLabelFmt.format(LocalDate.parse(dayKey))
+    fun fileStamp(): String = fileDateFmt.format(Instant.now().atZone(zone))
+
+    fun lastMonthRange(): Pair<Long, Long> = monthRange(LocalDate.now(zone).minusMonths(1))
+
+    fun formatDate(epochMs: Long): String = DateTimeFormatter.ofPattern("d MMM yyyy", locale).format(Instant.ofEpochMilli(epochMs).atZone(zone))
+
     fun now(): Long = System.currentTimeMillis()
 
     fun todayRange(today: LocalDate = LocalDate.now(zone)): Pair<Long, Long> {
