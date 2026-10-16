@@ -68,3 +68,16 @@ jobs:
           prerelease: true
           body: APK debug untuk uji coba. Unduh file .apk di bawah, lalu pasang di HP Android.
           files: AuroraShop-debug-${{ github.run_number }}.apk
+
+      - name: Perbarui rilis "Terbaru" (selalu APK paling baru)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp AuroraShop-debug-${{ github.run_number }}.apk AuroraShop-terbaru.apk
+          gh release delete terbaru --cleanup-tag -y || true
+          gh release create terbaru AuroraShop-terbaru.apk \
+            --target ${{ github.sha }} \
+            --title "Aurora Shop - versi terbaru (build ${{ github.run_number }})" \
+            --notes "APK paling baru. Unduh AuroraShop-terbaru.apk lalu pasang / update di HP Android." \
+            --latest
+
