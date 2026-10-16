@@ -5,9 +5,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Brand = Color(0xFF1B6B3A)
-val BrandDark = Color(0xFF0F4A27)
-val BrandSoft = Color(0xFFDDEFE2)
+val Brand = Color(0xFF1D4ED8)
+val BrandDark = Color(0xFF1E3A8A)
+val BrandSoft = Color(0xFFDBEAFE)
 val Warn = Color(0xFFE07B00)
 val WarnSoft = Color(0xFFFFF1DC)
 val Danger = Color(0xFFC62828)
@@ -19,17 +19,19 @@ private val Colors = lightColorScheme(
     onPrimary = Color.White,
     primaryContainer = BrandSoft,
     onPrimaryContainer = BrandDark,
-    secondary = Color(0xFF4E6354),
-    secondaryContainer = Color(0xFFD9E7DC),
+    onSurface = Color(0xFF0F172A),
+    onSurfaceVariant = Color(0xFF475569),
+    secondary = Color(0xFF475569),
+    secondaryContainer = Color(0xFFE2E8F0),
     tertiary = Warn,
     tertiaryContainer = WarnSoft,
     error = Danger,
-    background = Color(0xFFF6F8F4),
-    surface = Color(0xFFF6F8F4),
-    surfaceVariant = Color(0xFFE6EBE4),
+    background = Color(0xFFF5F7FB),
+    surface = Color(0xFFF5F7FB),
+    surfaceVariant = Color(0xFFE2E8F0),
     surfaceContainer = Color(0xFFFFFFFF),
     surfaceContainerLow = Color(0xFFFFFFFF),
-    surfaceContainerHigh = Color(0xFFEEF2EC),
+    surfaceContainerHigh = Color(0xFFEEF2F8),
 )
 
 /** Tema terang saja: dipakai di toko yang terang, dan warna uang (hijau/merah) tetap jelas. */

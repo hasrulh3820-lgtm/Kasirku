@@ -28,12 +28,12 @@ class BackupManager(private val context: Context) {
         prefs.edit().putLong("lastBackupAt", System.currentTimeMillis()).apply()
     }
 
-    /** null jika [file] adalah backup KasirKu yang valid; selain itu pesan kesalahan yang mudah dipahami. */
+    /** null jika [file] adalah backup Aurora Shop yang valid; selain itu pesan kesalahan yang mudah dipahami. */
     fun checkBackupFile(file: File): String? {
         val header = ByteArray(16)
         val read = file.inputStream().use { it.read(header) }
         if (read < 16 || String(header, 0, 15, Charsets.US_ASCII) != "SQLite format 3") {
-            return "File ini bukan backup KasirKu. Pilih file backup yang dibuat dari menu Backup."
+            return "File ini bukan backup Aurora Shop. Pilih file backup yang dibuat dari menu Backup."
         }
         return try {
             SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
@@ -45,7 +45,7 @@ class BackupManager(private val context: Context) {
                     null,
                 ).use { c ->
                     c.moveToFirst()
-                    if (c.getInt(0) < 3) "File ini bukan backup KasirKu." else null
+                    if (c.getInt(0) < 3) "File ini bukan backup Aurora Shop." else null
                 }
             }
         } catch (e: Exception) {

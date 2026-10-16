@@ -1,4 +1,4 @@
-# KasirKu UMKM
+# Aurora Shop (kode proyek: KasirKu UMKM)
 
 Aplikasi kasir dan stok barang Android untuk toko kecil. Offline, tanpa login, data tersimpan di HP.
 

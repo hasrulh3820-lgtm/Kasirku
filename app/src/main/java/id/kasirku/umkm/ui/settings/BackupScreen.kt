@@ -170,7 +170,7 @@ fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = viewModel(factory = B
                 color = if (lastBackup == 0L) Loss else MaterialTheme.colorScheme.onSurface,
             )
             Button(
-                onClick = { saveLauncher.launch("KasirKu-backup-${Waktu.fileStamp()}.kasirku") },
+                onClick = { saveLauncher.launch("AuroraShop-backup-${Waktu.fileStamp()}.kasirku") },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) {

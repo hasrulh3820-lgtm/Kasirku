@@ -51,7 +51,7 @@ fun KasirTopBar(title: String, onBack: (() -> Unit)? = null, subtitle: String? =
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primary,
+            containerColor = id.kasirku.umkm.ui.theme.BrandDark,
             titleContentColor = MaterialTheme.colorScheme.onPrimary,
             navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
         ),

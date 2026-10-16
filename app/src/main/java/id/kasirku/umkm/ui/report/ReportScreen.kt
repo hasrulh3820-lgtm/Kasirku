@@ -144,7 +144,7 @@ fun ReportScreen(
     }
     fun export(kind: CsvKind) {
         pendingKind = kind
-        saveCsv.launch("KasirKu-${kind.fileName}-${range.name.lowercase()}-${Waktu.fileStamp()}.csv")
+        saveCsv.launch("AuroraShop-${kind.fileName}-${range.name.lowercase()}-${Waktu.fileStamp()}.csv")
     }
 
     Scaffold(

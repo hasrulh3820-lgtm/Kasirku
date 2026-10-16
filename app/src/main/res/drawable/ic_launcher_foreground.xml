@@ -19,6 +19,6 @@
         android:pathData="M28,71h52v7a3,3 0,0 1,-3 3h-46a3,3 0,0 1,-3 -3z" />
     <!-- tombol (lubang) -->
     <path
-        android:fillColor="#FF1B6B3A"
+        android:fillColor="#FF1E3A8A"
         android:pathData="M42,57h5v4h-5zM51.5,57h5v4h-5zM61,57h5v4h-5zM50,74h8v2h-8z" />
 </vector>
