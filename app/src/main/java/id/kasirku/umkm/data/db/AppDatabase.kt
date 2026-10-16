@@ -8,6 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import id.kasirku.umkm.data.db.dao.DashboardDao
 import id.kasirku.umkm.data.db.dao.ProductDao
+import id.kasirku.umkm.data.db.dao.SaleDao
+import id.kasirku.umkm.data.db.dao.StoreDao
 import id.kasirku.umkm.data.db.dao.StockDao
 import id.kasirku.umkm.data.db.entity.Category
 import id.kasirku.umkm.data.db.entity.Customer
@@ -44,6 +46,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun stockDao(): StockDao
     abstract fun dashboardDao(): DashboardDao
+    abstract fun saleDao(): SaleDao
+    abstract fun storeDao(): StoreDao
 
     companion object {
         /** v1 -> v2: multi-satuan. Data lama tidak dihapus. SQL-nya diuji di MigrationSqlTest. */

@@ -8,7 +8,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import id.kasirku.umkm.ui.cashier.CashierScreen
+import id.kasirku.umkm.ui.cashier.ReceiptScreen
+import id.kasirku.umkm.ui.cashier.SalesHistoryScreen
 import id.kasirku.umkm.ui.home.HomeScreen
+import id.kasirku.umkm.ui.settings.StoreProfileScreen
 import id.kasirku.umkm.ui.product.ProductDetailScreen
 import id.kasirku.umkm.ui.product.ProductFormScreen
 import id.kasirku.umkm.ui.product.ProductListScreen
@@ -22,6 +26,12 @@ object Routes {
     const val PRODUCT_DETAIL = "product/{id}"
     const val STOCK_IN = "stock_in/{id}"
     const val STOCK_COUNT = "stock_count"
+    const val CASHIER = "cashier"
+    const val RECEIPT = "receipt/{id}"
+    const val SALES = "sales"
+    const val STORE = "store"
+
+    fun receipt(id: Long) = "receipt/$id"
 
     fun productForm(id: Long? = null) = if (id == null) "product_form" else "product_form?id=$id"
     fun productDetail(id: Long) = "product/$id"
@@ -40,7 +50,26 @@ fun KasirKuNavHost() {
                 onProducts = { nav.navigate(Routes.PRODUCTS) },
                 onAddProduct = { nav.navigate(Routes.productForm()) },
                 onProductClick = { nav.navigate(Routes.productDetail(it)) },
+                onCashier = { nav.navigate(Routes.CASHIER) },
+                onSales = { nav.navigate(Routes.SALES) },
+                onStore = { nav.navigate(Routes.STORE) },
             )
+        }
+        composable(Routes.CASHIER) {
+            CashierScreen(
+                onBack = { nav.popBackStack() },
+                onDone = { nav.navigate(Routes.receipt(it)) },
+                onHistory = { nav.navigate(Routes.SALES) },
+            )
+        }
+        composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
+            ReceiptScreen(onBack = { nav.popBackStack() })
+        }
+        composable(Routes.SALES) {
+            SalesHistoryScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.receipt(it)) })
+        }
+        composable(Routes.STORE) {
+            StoreProfileScreen(onBack = { nav.popBackStack() }, onSaved = { nav.popBackStack(); toast("Profil toko disimpan.") })
         }
         composable(Routes.PRODUCTS) {
             ProductListScreen(

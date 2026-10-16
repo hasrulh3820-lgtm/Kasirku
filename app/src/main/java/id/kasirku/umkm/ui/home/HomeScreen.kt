@@ -18,10 +18,13 @@ import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,6 +89,9 @@ fun HomeScreen(
     onProducts: () -> Unit,
     onAddProduct: () -> Unit,
     onProductClick: (Long) -> Unit,
+    onCashier: () -> Unit,
+    onSales: () -> Unit,
+    onStore: () -> Unit,
     vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -101,13 +107,13 @@ fun HomeScreen(
             item {
                 BigMenuButton(
                     icon = Icons.Filled.PointOfSale, title = "Mulai Kasir",
-                    subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
+                    subtitle = "Jual per pcs, renteng, atau dus", onClick = onCashier, highlight = true,
                 )
             }
             item {
                 BigMenuButton(
                     icon = Icons.Filled.Inventory2, title = "Produk dan Stok",
-                    subtitle = "Lihat stok, barang masuk, riwayat", onClick = onProducts, highlight = true,
+                    subtitle = "Lihat stok, barang masuk, hitung stok", onClick = onProducts,
                 )
             }
             item {
@@ -127,6 +133,17 @@ fun HomeScreen(
                     icon = Icons.Filled.AccountBalanceWallet, title = "Utang Pelanggan",
                     subtitle = "Segera hadir di versi berikutnya (Tahap 3)", onClick = {}, enabled = false,
                 )
+            }
+
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onSales, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null); Text("  Riwayat Penjualan")
+                    }
+                    OutlinedButton(onClick = onStore, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Storefront, contentDescription = null); Text("  Profil Toko")
+                    }
+                }
             }
 
             item { SummaryCard(title = "Bulan ${Waktu.monthLabel()}", s = state.month) }
