@@ -26,6 +26,21 @@ jobs:
       - name: Uji perhitungan (unit test)
         run: gradle testDebugUnitTest --stacktrace
 
+      - name: Ringkasan hasil tes
+        if: always()
+        run: |
+          total=0; failed=0
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            name=$(basename "$f" .xml | sed 's/^TEST-//; s/.*\.//')
+            t=$(grep -o 'tests="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*')
+            x=$(grep -o 'failures="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*')
+            e=$(grep -o 'errors="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*')
+            total=$((total + t)); failed=$((failed + x + e))
+            echo "::notice title=Tes $name::$t tes, $((x + e)) gagal"
+          done
+          echo "::notice title=Total tes::$total tes, $failed gagal"
+          test "$total" -gt 0
+
       - name: Bangun APK debug
         run: gradle assembleDebug --stacktrace
 
